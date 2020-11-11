@@ -1,0 +1,408 @@
+---
+title: "power"
+author: "Nathan Young"
+date: "11/9/2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+#libraries 
+library(tidyverse)
+library(pwr)
+
+```
+
+#pwr
+
+pwr is an r package that can help you calculate power (or other parameters) for a number of different tests:
+
+t-test
+correlation
+proportional tests
+one-way anova
+chi-squared tests
+multiple regression models
+
+##T-tests
+
+```{r}
+#power analysis for t-tests using the pwr package
+
+#leave one term out to calculate it. Fill in the rest.
+pwr.t.test(n = , d = , sig.level = , power = , type = )
+
+#see examples below
+
+```
+
+```{r}
+#What sample size do we need to detect at minimum a d = .3, at an alpha =.05, and power at least .80?
+
+pwr.t.test(d = .3, sig.level = .05, power = .8, type = "two.sample")
+
+#Switch "two.sample" to "paired" for within subjects
+
+```
+
+```{r}
+#view power curve
+powerout <- pwr.t.test(d = .3, sig.level = .05, power = .8, type = "two.sample")
+
+plot(powerout) + theme_bw()
+```
+
+
+```{r}
+#What power would/do we have?
+
+pwr.t.test(n = 150, d = .3, sig.level = .05, type = "two.sample")
+```
+
+
+```{r}
+#Sensitivity  - calculate critical effect size
+
+#What is the minimum effect size we can reliably detect given that we collect 100 participants, at an alpha of .05, with at least power of .80?
+
+pwr.t.test(n = 100, power = .8, sig.level = .05, type = "two.sample")
+
+```
+
+##correlation
+
+```{r}
+#leave one out, fill in the rest to calculate the left out parameter
+pwr.r.test(n =, r =, sig.level = , power = )
+```
+
+```{r}
+#what sample size do we need for an r = .3, alpha of .05, and power at least of .80?
+pwr.r.test(r = .3, sig.level = .05, power = .8)
+```
+
+#SuperPower
+https://aaroncaldwell.us/SuperpowerBook/
+
+online Shiny apps (see https://arcstats.io/shiny/anova-exact/ and https://arcstats.io/shiny/anova-power/).
+```{r}
+#power analysis with superpower
+library(Superpower)
+
+```
+
+Superpower allows researchers to perform simulation-based power analyses without having extensive programming knowledge.
+
+We can do an example from the SuperPower paper: Lakens & Caldwell (2019)
+
+##2 between subjects conditions
+```{r}
+#first we specify a design and the expected distributions of the conditions
+
+design_result <- ANOVA_design(
+  design = "2b", 
+  n = 100,
+  mu = c(.8, 0), 
+  sd = 2,
+  labelnames = c("condition", 
+                 "cheerful", 
+                 "sad"),
+  plot = TRUE)
+
+#we have 2 between subjects conditions: design = ("2b")
+#we base our analysis on a sample of 80 participants per condition: n = 80
+#the means of those conditions are 1 and 0: mu = c(1,0)
+#the standard deviation across those conditions is 2: sd = 2
+
+#see visualization created below once this block of code is run
+
+#for reference cohen's d = (m1 - m2)/sd
+#this example: (0-1)/2 = -.5
+```
+
+```{r}
+mean1 <-.8
+mean2 <-0
+sd_ <-2
+
+cohensd <- (mean1 - mean2)/sd_
+
+cohensd
+```
+
+```{r}
+
+condition <- rep(letters[1], each = 1000)
+score <- rnorm(n = 1000, mean = mean1, sd = sd_)
+
+A <- cbind(condition, score)
+
+condition <- rep(letters[2], each = 1000)
+score <- rnorm(n = 1000, mean = mean2, sd = sd_)
+
+B <- cbind(condition, score)
+
+data <- rbind(A,B)
+
+data <- as.tibble(data)
+
+data$score <- as.numeric(data$score)
+
+data %>%
+  ggplot(aes(x = score, fill = condition)) +
+  geom_density(alpha = .3) + 
+  geom_vline(aes(xintercept=0, na.rm=T),   # Ignore NA values for mean
+               color="red", linetype="dashed", size=1) +
+  geom_vline(aes(xintercept = 1, na.rm=T),
+             color="blue", linetype="dashed", size = 1) +
+  ggtitle("Representation of a Cohen's d of .4")
+  
+```
+
+
+
+```{r}
+#next we simulate a data set that has the properties we specified above
+
+#there are 2 ways to do that with the SuperPower package
+
+#1 - ANOVA_power - this function simulates data sets repeatedly based on the specified parameters and caculates the percentage of statistically significant results
+
+
+#2 - ANOVA_exact - simulates a data set that has EXACTLY the desired properties, performs an ANOVA, and uses the ANOVA results to compute power
+```
+
+```{r}
+#1 - ANOVA_power: this will take a few minutes (depends on your computer)
+#the more nsims the closer the result will be to #2
+
+design_sim <- ANOVA_power(design_result, 
+                   nsims = 5000)
+```
+
+```{r}
+#2 - ANOVA_exact - **recommended**
+
+design_exact <- ANOVA_exact(design_result)
+```
+
+##3 between subjects conditions
+
+```{r}
+design_result_1 <- ANOVA_design(
+  design = "3b", 
+  n = 80,
+  mu = c(1, 0.5, 0), 
+  sd = 2,
+  labelnames = c("condition",
+                 "cheerful",
+                 "neutral", 
+                 "sad"))
+
+#effect size reference: Cohen's f = standard deviation of the means / standard deviation
+
+#this example: .5/2 = .25
+
+#to patial eta squared (n2p): sqrt((.25^2) / ((.25^2)+1)) = n2p 
+```
+
+```{r}
+mean1 <-1
+mean2 <-.5
+mean3 <- 0
+sd_ <-2
+
+cohensf <- (sd(c(mean1,mean2,mean3))/sd_)
+
+cohensf
+```
+
+```{r}
+
+condition <- rep(letters[1], each = 1000)
+score <- rnorm(n = 1000, mean = mean1, sd = sd_)
+
+A <- cbind(condition, score)
+
+condition <- rep(letters[2], each = 1000)
+score <- rnorm(n = 1000, mean = mean2, sd = sd_)
+
+B <- cbind(condition, score)
+
+condition <- rep(letters[3], each = 1000)
+score <- rnorm(n = 1000, mean = mean3, sd = sd_)
+
+C <- cbind(condition, score)
+
+data <- rbind(A,B,C)
+
+data <- as.tibble(data)
+
+data$score <- as.numeric(data$score)
+
+data %>%
+  ggplot(aes(x = score, fill = condition)) +
+  geom_density(alpha = .3) + 
+  geom_vline(aes(xintercept=1, na.rm=T),   # Ignore NA values for mean
+               color="red", linetype="dashed", size=1) +
+  geom_vline(aes(xintercept = .5, na.rm=T),
+             color="green", linetype="dashed", size = 1) +
+  geom_vline(aes(xintercept = 0, na.rm=T),
+             color="blue", linetype="dashed", size = 1) +
+  ggtitle("Representation of a Cohen's f of .25")
+  
+```
+
+```{r}
+#2 - ANOVA_exact - **recommended**
+
+design_exact <- ANOVA_exact(design_result_1)
+```
+
+##within subjects design
+
+```{r}
+design_within <- ANOVA_design(
+  design = "3w", 
+  n = 80, 
+  mu = c(1, 0.5, 0),
+  sd = 2, 
+  r = 0.5,
+  labelnames = c("condition",
+                 "cheerful",
+                 "neutral", 
+                 "sad"))
+
+#new parameters - r
+
+#r = correlation between repeated measures
+
+#effect size reference - Cohen's f 
+```
+
+```{r}
+#run a simulation based on the design
+power_within = ANOVA_power(design_within, nsims = 100000)
+
+#OR
+
+exact_within = ANOVA_exact(design_within)
+```
+##Power for interactions
+
+```{r}
+design_result_cross <- ANOVA_design(
+  design = "2b*2b", 
+  n = 120,
+  mu = c(1, 0, 0, 0), 
+  #c(a1_b1, a1_b2, a2_b1, a2_b2) - order of condition means for a 2 x 2
+  sd = 2,
+  labelnames = c("condition",
+                 "cheerful", "sad",
+                 "voice",
+                 "human", "robot"))
+
+#effect size reference - Cohen's f for interaction effects - Box 3 Lakens & Caldwell (2019)
+
+#see page 8 box 3 in Lakens & Caldwell (2019) for important considerations regarding crossover vs non-crossover interactions
+
+#Also this talk by Jeff Rouder - https://www.youtube.com/watch?v=PzHcwS3xbZ8
+```
+
+```{r}
+mean1 <-1
+mean2 <-0
+mean3 <-0
+mean4 <-0
+sd_ <-2
+
+gm <- ((mean1 + mean2 + mean3 + mean4)/4)
+mm1 <- mean(c(mean1, mean2)) - gm
+mm2 <- mean(c(mean3, mean4)) - gm
+mm3 <- mean(c(mean2, mean4)) - gm
+mm4 <- mean(c(mean1, mean3)) - gm
+
+
+cohensf <- ((sqrt(((((mean1 - (gm + mm1 + mm4))^2) +
+                ((mean2 - (gm + mm1 + mm3))^2) +
+                ((mean3 - (gm + mm2 + mm4))^2) +
+                ((mean4 - (gm + mm2 + mm3))^2))/4))/2))
+
+cohensf
+```
+
+```{r}
+
+conditiona <- rep(letters[1], each = 1000)
+conditionb <- rep(letters[3], each = 1000)
+score <- rnorm(n = 1000, mean = mean1, sd = sd_)
+
+A <- cbind(conditiona, conditionb, score)
+
+conditiona <- rep(letters[1], each = 1000)
+conditionb <- rep(letters[4], each = 1000)
+score <- rnorm(n = 1000, mean = mean2, sd = sd_)
+
+B <- cbind(conditiona, conditionb, score)
+
+conditiona <- rep(letters[2], each = 1000)
+conditionb <- rep(letters[3], each = 1000)
+score <- rnorm(n = 1000, mean = mean3, sd = sd_)
+
+C <- cbind(conditiona, conditionb, score)
+
+conditiona <- rep(letters[2], each = 1000)
+conditionb <- rep(letters[4], each = 1000)
+score <- rnorm(n = 1000, mean = mean4, sd = sd_)
+
+D <- cbind(conditiona, conditionb, score)
+
+data <- rbind(A,B,C,D)
+
+data <- as.tibble(data)
+
+data$score <- as.numeric(data$score)
+
+data %>%
+  ggplot(aes(x = score, fill = conditiona)) +
+  geom_density(alpha = .3) + 
+  geom_vline(aes(xintercept=1, na.rm=T),   # Ignore NA values for mean
+               color="yellow", linetype="dashed", size=1) +
+  geom_vline(aes(xintercept = 0, na.rm=T),
+             color="black", linetype="dashed", size = 1) +
+  ggtitle("Representation of a Cohen's f of .25") + 
+  facet_grid(~conditionb)
+  
+```
+
+```{r}
+exact_cross = ANOVA_exact(design_result_cross)
+```
+
+##power curves
+
+```{r}
+design_result_eg <- ANOVA_design(
+  design = "2b*2b", 
+  n = 50,
+  mu = c(30, 35, 30, 31), 
+  sd = 5,
+  labelnames = c("AgeGroup",
+                 "Young", "Old",
+                 "Emotion",
+                 "Neutral", "Anger"))
+
+
+plot_power(design_result_eg,
+           min_n = 10, 
+           max_n = 100,
+           desired_power = 80, 
+           plot = TRUE)
+```
+
